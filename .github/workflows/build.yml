@@ -39,12 +39,15 @@ jobs:
           export KBUILD_BUILD_USER="DxrkFuture"
           export KBUILD_BUILD_HOST="Github-Actions"
           
-          # 1. Фикс "extern inline" для f2fs (убираем extern, чтобы inline работал корректно)
-          sed -i 's/extern inline void wake_up_odiscard_of2fs/inline void wake_up_odiscard_of2fs/g' fs/f2fs/f2fs.h
-          # На всякий случай фиксим и другие подобные места в f2fs
-          sed -i 's/extern inline/inline/g' fs/f2fs/f2fs.h
+          # 1. Жесткий фикс f2fs: убираем always_inline и inline вообще
+          # Это заставит компилятор обрабатывать функцию как обычную
+          sed -i 's/extern inline void wake_up_odiscard_of2fs/void wake_up_odiscard_of2fs/g' fs/f2fs/f2fs.h
+          sed -i 's/inline void wake_up_odiscard_of2fs/void wake_up_odiscard_of2fs/g' fs/f2fs/f2fs.h
+          
+          # Убираем атрибуты принудительного инлайна в объявлении
+          sed -i 's/__always_inline void wake_up_odiscard_of2fs/void wake_up_odiscard_of2fs/g' fs/f2fs/f2fs.h
 
-          # 2. Остальные фиксы из предыдущих шагов
+          # 2. Стандартные фиксы
           sed -i 's/allowed = False/allowed = True/g' scripts/gcc-wrapper.py
           export HOSTCFLAGS="-fcommon"
           export HOSTCXXFLAGS="-fcommon"
@@ -53,7 +56,7 @@ jobs:
           make O=out ARCH=arm64 vendor/kona-perf_defconfig
           sed -i 's/CONFIG_WERROR=y/CONFIG_WERROR=n/g' out/.config
 
-          # 4. Сборка
+          # 4. Сборка (добавлена переменная DISABLE_WERROR)
           make -j$(nproc) O=out \
                       ARCH=arm64 \
                       LLVM=1 \
@@ -61,7 +64,9 @@ jobs:
                       CLANG_TRIPLE=aarch64-linux-gnu- \
                       CROSS_COMPILE=aarch64-linux-gnu- \
                       CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-                      KCFLAGS="-w -fno-strict-aliasing -fcommon"
+                      KCFLAGS="-w -fno-strict-aliasing -fcommon" \
+                      DISABLE_WERROR=y
+
 
       - name: Package with AnyKernel3
         run: |
