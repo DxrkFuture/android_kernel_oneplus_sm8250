@@ -48,7 +48,6 @@ jobs:
           
           # 2. Фиксы драйверов (f2fs и камера), чтобы не падал в середине процесса
           sed -i 's/extern inline void wake_up_odiscard_of2fs/void wake_up_odiscard_of2fs/g' fs/f2fs/f2fs.h || true
-          find techpack/camera/ -name Makefile -exec sed -i 's/-mgeneral-regs-only/-mgeneral-regs-only -ffreestanding/g' {} +
 
           # 3. Исправления скриптов оберток
           sed -i 's/allowed = False/allowed = True/g' scripts/gcc-wrapper.py || true
