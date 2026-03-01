@@ -15,7 +15,7 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison build-essential flex gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev libelf-dev clang lld llvm
+          sudo apt-get install -y bc bison build-essential flex gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi git libssl-dev libelf-dev clang lld llvm
 
       - name: Integrate KernelSU
         run: |
