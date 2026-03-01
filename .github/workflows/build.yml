@@ -39,22 +39,21 @@ jobs:
           export KBUILD_BUILD_USER="DxrkFuture"
           export KBUILD_BUILD_HOST="Github-Actions"
           
-          # 1. Отключаем "Forbidden warning" в скрипте обертке
-          sed -i 's/allowed = False/allowed = True/g' scripts/gcc-wrapper.py
+          # 1. Фикс "extern inline" для f2fs (убираем extern, чтобы inline работал корректно)
+          sed -i 's/extern inline void wake_up_odiscard_of2fs/inline void wake_up_odiscard_of2fs/g' fs/f2fs/f2fs.h
+          # На всякий случай фиксим и другие подобные места в f2fs
+          sed -i 's/extern inline/inline/g' fs/f2fs/f2fs.h
 
-          # 2. Фикс для yylloc (на всякий случай, если пропустили)
+          # 2. Остальные фиксы из предыдущих шагов
+          sed -i 's/allowed = False/allowed = True/g' scripts/gcc-wrapper.py
           export HOSTCFLAGS="-fcommon"
           export HOSTCXXFLAGS="-fcommon"
 
-          # 3. Генерируем конфиг
+          # 3. Конфигурация
           make O=out ARCH=arm64 vendor/kona-perf_defconfig
-
-          # 4. Отключаем -Werror в уже сгенерированном .config
           sed -i 's/CONFIG_WERROR=y/CONFIG_WERROR=n/g' out/.config
-          # Дополнительно отключаем форсирование ошибок через флаги сборки
-          
-          # 5. Основная сборка
-          # Добавляем -w в KCFLAGS, чтобы подавить вывод варнингов вообще
+
+          # 4. Сборка
           make -j$(nproc) O=out \
                       ARCH=arm64 \
                       LLVM=1 \
@@ -63,7 +62,6 @@ jobs:
                       CROSS_COMPILE=aarch64-linux-gnu- \
                       CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
                       KCFLAGS="-w -fno-strict-aliasing -fcommon"
-
 
       - name: Package with AnyKernel3
         run: |
