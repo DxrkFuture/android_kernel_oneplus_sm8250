@@ -17,24 +17,48 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y bc bison build-essential flex gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev libelf-dev clang lld llvm curl git
 
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential flex gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev libelf-dev clang lld llvm curl git python2
+          # Делаем python2 версией по умолчанию для этого шага
+          sudo ln -sf /usr/bin/python2 /usr/bin/python
+
       - name: Integrate KernelSU
         run: |
+          # Прямая интеграция без лишних скриптов, если стандартный тупит
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-          # Включаем KSU в конфиге
-          echo "CONFIG_KSU=y" >> arch/arm64/configs/vendor/kona-perf_defconfig
+          # Убеждаемся, что в конце Kconfig нет мусора
+          sed -i '/drivers\/kernelsu\/Kconfig/d' drivers/Kconfig
+          echo 'source "drivers/kernelsu/Kconfig"' >> drivers/Kconfig
 
       - name: Build Kernel
         run: |
           export ARCH=arm64
           export SUBARCH=arm64
-          # Используем системный Clang из Ubuntu (он достаточно свежий)
+          export KBUILD_BUILD_USER="DxrkFuture"
+          export KBUILD_BUILD_HOST="Github-Actions"
+          
+          # Отключаем обертку gcc-wrapper, если она мешает (опционально)
+          # или просто надеемся на python2
+          
           make O=out ARCH=arm64 vendor/kona-perf_defconfig
+          
+          # Если на этапе выше опять будет SyntaxError, раскомментируй строку ниже:
+          # sed -i 's/print /print(/g; s/$/)/' scripts/gcc-wrapper.py # Костыль для print в Python 3
+          
           make -j$(nproc) O=out \
                       ARCH=arm64 \
                       CC=clang \
                       CLANG_TRIPLE=aarch64-linux-gnu- \
                       CROSS_COMPILE=aarch64-linux-gnu- \
-                      CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+                      CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+                      LD=ld.lld \
+                      AR=llvm-ar \
+                      NM=llvm-nm \
+                      OBJCOPY=llvm-objcopy \
+                      OBJDUMP=llvm-objdump \
+                      STRIP=llvm-strip
 
       - name: Package with AnyKernel3
         run: |
