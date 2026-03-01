@@ -39,26 +39,24 @@ jobs:
           export KBUILD_BUILD_USER="DxrkFuture"
           export KBUILD_BUILD_HOST="Github-Actions"
           
-          # Отключаем обертку gcc-wrapper, если она мешает (опционально)
-          # или просто надеемся на python2
-          
+          # Фикс для ошибки "multiple definition of yylloc" (GCC 10+)
+          export HOSTCFLAGS="-fcommon"
+          export HOSTCXXFLAGS="-fcommon"
+
+          # Генерируем конфиг
           make O=out ARCH=arm64 vendor/kona-perf_defconfig
-          
-          # Если на этапе выше опять будет SyntaxError, раскомментируй строку ниже:
-          # sed -i 's/print /print(/g; s/$/)/' scripts/gcc-wrapper.py # Костыль для print в Python 3
-          
+
+          # Основная сборка
+          # Мы используем LLVM=1 и LLVM_IAS=1, чтобы избежать вызова /usr/bin/as
           make -j$(nproc) O=out \
                       ARCH=arm64 \
-                      CC=clang \
+                      LLVM=1 \
+                      LLVM_IAS=1 \
                       CLANG_TRIPLE=aarch64-linux-gnu- \
                       CROSS_COMPILE=aarch64-linux-gnu- \
                       CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-                      LD=ld.lld \
-                      AR=llvm-ar \
-                      NM=llvm-nm \
-                      OBJCOPY=llvm-objcopy \
-                      OBJDUMP=llvm-objdump \
-                      STRIP=llvm-strip
+                      KCFLAGS="-fno-strict-aliasing -fcommon"
+
 
       - name: Package with AnyKernel3
         run: |
