@@ -26,10 +26,10 @@ jobs:
           # Делаем python2 версией по умолчанию для этого шага
           sudo ln -sf /usr/bin/python2 /usr/bin/python
 
-      - name: Integrate KernelSU
+      - name: Integrate KernelSU Next
         run: |
           # Прямая интеграция без лишних скриптов, если стандартный тупит
-          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -
           # Убеждаемся, что в конце Kconfig нет мусора
           sed -i '/drivers\/kernelsu\/Kconfig/d' drivers/Kconfig
           echo 'source "drivers/kernelsu/Kconfig"' >> drivers/Kconfig
@@ -46,7 +46,6 @@ jobs:
 
           # 2. Не забываем про прошлые фиксы (f2fs и камера), они точно выстрелят позже
           sed -i 's/extern inline void wake_up_odiscard_of2fs/void wake_up_odiscard_of2fs/g' fs/f2fs/f2fs.h || true
-          find techpack/camera/ -name Makefile -exec sed -i 's/-mgeneral-regs-only/-mgeneral-regs-only -ffreestanding/g' {} +
 
           # 3. Стандартные исправления скриптов
           sed -i 's/allowed = False/allowed = True/g' scripts/gcc-wrapper.py || true
