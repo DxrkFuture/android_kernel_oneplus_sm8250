@@ -41,24 +41,41 @@ jobs:
           export KBUILD_BUILD_USER="DxrkFuture"
           export KBUILD_BUILD_HOST="Github-Actions"
 
-          # 1. МАССОВЫЙ ФИКС отсутствующих компонентов OnePlus
-          # Комментируем все строки source, которые ведут в несуществующие папки kernel/sched_assist и kernel/tuning
-          sed -i 's/^source "kernel\/sched_assist\/Kconfig"/#source "kernel\/sched_assist\/Kconfig"/' init/Kconfig
-          sed -i 's/^source "kernel\/tuning\/Kconfig"/#source "kernel\/tuning\/Kconfig"/' init/Kconfig
-          
-          # 2. Фиксы драйверов (f2fs и камера), чтобы не падал в середине процесса
-          sed -i 's/extern inline void wake_up_odiscard_of2fs/void wake_up_odiscard_of2fs/g' fs/f2fs/f2fs.h || true
+          # 1. РАДИКАЛЬНЫЙ ФИКС БИТЫХ ССЫЛОК (Универсальный)
+          # Скрипт проходит по всем Kconfig и комментирует source, если файл не найден физически
+          find . -name "Kconfig*" | xargs sed -i 's/^source/source/g' # нормализация
+          python3 << EOF
+          import os, re
+          for root, dirs, files in os.walk("."):
+              for file in files:
+                  if file.startswith("Kconfig"):
+                      path = os.path.join(root, file)
+                      with open(path, "r") as f:
+                          lines = f.readlines()
+                      with open(path, "w") as f:
+                          for line in lines:
+                              match = re.search(r'source "([^"]+)"', line)
+                              if match:
+                                  src_path = match.group(1)
+                                  if not os.path.exists(src_path):
+                                      print(f"Commenting out missing: {src_path} in {path}")
+                                      f.write(f"# {line}")
+                                      continue
+                              f.write(line)
+          EOF
 
-          # 3. Исправления скриптов оберток
+          # 2. Фиксы драйверов (f2fs и камера)
+          sed -i 's/extern inline void wake_up_odiscard_of2fs/void wake_up_odiscard_of2fs/g' fs/f2fs/f2fs.h || true
+          
+          # 3. Скрипты обертки и флаги
           sed -i 's/allowed = False/allowed = True/g' scripts/gcc-wrapper.py || true
           export HOSTCFLAGS="-fcommon"
           export HOSTCXXFLAGS="-fcommon"
 
           # 4. Конфигурация
-          # Важно: сначала генерируем конфиг, потом правим его
           make O=out ARCH=arm64 vendor/kona-perf_defconfig
           
-          # Отключаем WERROR и включаем KernelSU (если скрипт setup.sh не прописал)
+          # Отключаем WERROR и форсим KSU
           sed -i 's/CONFIG_WERROR=y/CONFIG_WERROR=n/g' out/.config
           echo "CONFIG_KSU=y" >> out/.config
 
@@ -71,6 +88,7 @@ jobs:
                       CROSS_COMPILE=aarch64-linux-gnu- \
                       CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
                       KCFLAGS="-w -fno-strict-aliasing -fcommon"
+
 
       - name: Package with AnyKernel3
         run: |
